@@ -185,7 +185,6 @@ def as_json(text: str, sig: VectorSignature, label: str) -> str:
         "dimension_scores": sig.dimension_scores,
         "normalized_scores": sig.normalized_scores,
         "manipulation_index": sig.manipulation_index,
-        "energy_estimate": sig.energy_estimate,
         "leak_adjustments": sig.leak_adjustments,
         "trace": list(sig.trace),
     }
