@@ -4,8 +4,28 @@ Falsification suite for the 4D Language-Aware Lens.
 Each test states a CLAIM the original tool (implicitly) makes,
 then constructs a minimal text designed to break it.
 A claim survives only if the tool's output matches linguistic reality.
+
+ARCHIVED — this harness does not run in this repository. It targets v1
+(`original_4dlens.py`), which the audit report describes but which was never
+part of the supplied source set. It is kept verbatim as the record of which
+adversarial inputs broke which claim; the results it produced are transcribed
+in the claim ledger of `4D_Lens_Audit_Report.md`.
+
+Do not repoint this at `FourDLensV2` — the v2 fixes were derived from these
+exact tests, so running them against v2 would measure nothing. The runnable
+check for the current implementation is `tests/test_v2_regressions.py`.
 """
-from original_4dlens import FourDLens
+try:
+    from original_4dlens import FourDLens
+except ModuleNotFoundError as exc:  # pragma: no cover - guard, not logic
+    raise SystemExit(
+        "falsification_tests.py is an archived v1 harness and cannot run here.\n"
+        "It requires original_4dlens.py, which is not part of this repository.\n"
+        "Its recorded results live in the claim ledger of 4D_Lens_Audit_Report.md.\n"
+        "\n"
+        "To check the current implementation instead:\n"
+        "    python3 -m unittest discover -s tests -v"
+    ) from exc
 
 lens = FourDLens()
 

@@ -118,7 +118,7 @@ Mapped by where the *current* precision level (regex + lexicon, no parse tree, n
 
 ## Files delivered
 
-- `original_4dlens.py` — unmodified input, for reference/reproducibility
-- `falsification_tests.py` — the six-claim adversarial test suite, runnable, output above is real (not illustrative)
+- `original_4dlens.py` — unmodified input, for reference/reproducibility. **Not present in this repository** — it was described in the audit but was never part of the supplied source set. Every v1 result in the ledger above is transcribed from the original run, not reproducible here.
+- `falsification_tests.py` — the six-claim adversarial test suite, runnable at the time of the audit, output above is real (not illustrative). **Archived**: it imports `original_4dlens.py`, so it cannot run in this repository and exits with an explanation instead. It is kept verbatim as the record of which input broke which claim. The runnable check against the current implementation is `tests/test_v2_regressions.py`.
 - `revised_4dlens_v2.py` — patched implementation with inline changelog tying every change to the claim it fixes
 - `calibration_corpus.py` — scaffold for the actual next step (empirical weight-fitting); intentionally raises `NotImplementedError` until real labeled data exists, so it can't be mistaken for a finished validation
