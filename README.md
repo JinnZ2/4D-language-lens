@@ -13,11 +13,65 @@ text → [D1 agency] [D2 affect] [D3 reality] [D4 iconic] → composite scalar
 
 ## Install / run
 
+No external dependencies — Python standard library only, 3.10+.
+
+### Command line
+
 ```bash
-# no external dependencies — Python standard library only
-python3 revised_4dlens_v2.py                    # runs the built-in example set
-python3 -m unittest discover -s tests -v        # runs v2 regression checks
+python3 fourdlens_cli.py "Mistakes were made during the operational realignment."
 ```
+
+Or install once to get a `4dlens` command on your PATH:
+
+```bash
+pip install -e .
+4dlens "Mistakes were made during the operational realignment."
+```
+
+The output puts the trace first, on purpose — the patterns that fired are the
+finding, and the composite scalar is printed last with the one sentence that
+describes what it actually means:
+
+```
+  WHAT FIRED  — read this before the number
+
+  D1  agency routing         2 patterns
+      · Passive voice found: 'were made'
+      · Agentless nominalization: 'realignment'
+
+  D3  reality construction   1 pattern
+      · Countable reification: 'realignment'
+
+  nothing fired in: D2 affective impedance, D4 iconic mass
+
+  RAW SCORES   D1 2.50   D2 0.00   D3 1.20   D4 0.00
+
+  manipulation_index  0.203
+  Not a probability, not a percentile, not validated against ground truth.
+  It means only: more of these hand-picked patterns fired, weighted by
+  hand-picked constants.
+```
+
+| Invocation | What it does |
+|---|---|
+| `4dlens -f draft.md` | analyze a file; repeatable, and `-` means stdin |
+| `cat draft.md \| 4dlens` | read from stdin |
+| `4dlens --demo` | analyze the audited example set from the falsification ledger |
+| `4dlens --json` | JSON Lines, one object per input, for pipelines |
+| `4dlens --no-index` | trace and raw scores only, composite scalar suppressed |
+
+**The command never exits non-zero on the basis of a score.** A non-zero exit
+means a usage or I/O error. This is deliberate and tested: an exit code is a
+gate, and the flags below explain why this instrument must not be one.
+
+### Tests
+
+```bash
+python3 -m unittest discover -s tests -v     # v2 regressions + CLI contract
+python3 revised_4dlens_v2.py                 # the built-in example set, scores only
+```
+
+### Python API
 
 ```python
 from revised_4dlens_v2 import FourDLensV2
@@ -93,8 +147,11 @@ No dependency parse → no real syntactic passive/agency detection, only lexical
 ## Files in this repo
 
 - `revised_4dlens_v2.py` — the current implementation; import `FourDLensV2` from this module.
+- `fourdlens_cli.py` — the `4dlens` command; trace-first reporting, JSON Lines output, no score-dependent exit codes.
 - `tests/test_v2_regressions.py` — standard-library regression checks for the available v2 implementation.
-- `falsification_tests.py` — archived v1 falsification harness. It references `original_4dlens.py`, which was described in the documentation but was not part of the supplied source set; use the v2 regression suite above for a runnable check.
+- `tests/test_cli.py` — CLI contract checks: the full trace is reported, the scalar is suppressible, and no score can change the exit code.
+- `falsification_tests.py` — archived v1 falsification harness. It targets `original_4dlens.py`, which the audit describes but which was not part of the supplied source set, so it does not run; it exits with an explanation pointing at the v2 regression suite. Its recorded results are transcribed in the audit's claim ledger.
 - `calibration_corpus.py` — scaffold for empirical weight fitting; intentionally raises `NotImplementedError` until real labeled data exists.
 - `4D_Lens_Audit_Report.md` — full audit: theory grounding, claim-by-claim before/after, and development opportunities.
-- `pyproject.toml` — minimal project metadata declaring Python 3.10+ and no runtime dependencies.
+- `pyproject.toml` — project metadata and the `4dlens` entry point; Python 3.10+, no runtime dependencies.
+- `conftest.py` — puts the repo root on `sys.path` so `pytest` works as well as the stdlib runner.

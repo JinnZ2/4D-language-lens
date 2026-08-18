@@ -12,26 +12,32 @@ It is **not** a parser, a classifier, or a validated instrument. There is no dep
 
 ## Commands
 
-Python 3.10+, standard library only. No install step, no external dependencies.
+Python 3.10+, standard library only. No external dependencies at runtime or test time.
 
 ```bash
-python3 revised_4dlens_v2.py                 # run the built-in example set
-python3 -m unittest discover -s tests -v     # run the v2 regression suite (6 tests)
+python3 fourdlens_cli.py "text to analyze"   # the CLI, without installing
+pip install -e . && 4dlens "text"            # installs the `4dlens` entry point
+python3 -m unittest discover -s tests -v     # full suite (18 tests)
+python3 revised_4dlens_v2.py                 # built-in example set, scores only
 ```
 
-`falsification_tests.py` is an archived v1 harness. It imports `original_4dlens.py`, which is not in this repo, so it does not run — leave it as a historical artifact rather than "fixing" the import. The runnable check is `tests/test_v2_regressions.py`.
+`falsification_tests.py` is an archived v1 harness. It imports `original_4dlens.py`, which is not in this repo, so it cannot run; it raises `SystemExit` with an explanation instead of an `ImportError` traceback. Leave it as a historical artifact — do not repoint it at `FourDLensV2`. The v2 fixes were derived from these exact tests, so running them against v2 would measure nothing.
 
 ## Layout
 
 - `revised_4dlens_v2.py` — the whole implementation. The module docstring carries a change log mapping every v2 change to the falsified v1 claim (C1–C7) that motivated it. Keep that mapping current when changing scoring behavior.
+- `fourdlens_cli.py` — the `4dlens` command. It reads the lens's output and reformats it; it holds no scoring logic and must not acquire any.
 - `tests/test_v2_regressions.py` — regression checks pinned to the audited fixes.
+- `tests/test_cli.py` — CLI contract checks, including the exit-code guarantee below.
 - `calibration_corpus.py` — scaffold for empirical weight fitting. `fit_weights()` raises `NotImplementedError` on purpose, so it cannot be mistaken for completed validation. Do not implement it against the placeholder examples; it needs real labeled data first.
 - `4D_Lens_Audit_Report.md` — falsification ledger, theory grounding, and the prioritized list of next steps.
 - `README.md` — operating manual and use-case boundaries.
 
 ## Working conventions
 
-**The trace is the product; the scalar is not.** `sig.trace` explains exactly which pattern fired and why. `manipulation_index` is a weighted sum of hand-picked constants with no reported precision or recall. Any new feature should make the trace more legible rather than make the number look more authoritative.
+**The trace is the product; the scalar is not.** `sig.trace` explains exactly which pattern fired and why. `manipulation_index` is a weighted sum of hand-picked constants with no reported precision or recall. Any new feature should make the trace more legible rather than make the number look more authoritative. The CLI encodes this as layout: patterns fired first and in full, raw scores second, the composite last and annotated with its actual semantics. Keep that ordering.
+
+**The CLI's exit code must never depend on a score.** An exit code is a gate, and the audit is explicit that this instrument must not gate anything. Non-zero means usage or I/O error only. `tests/test_cli.py` asserts this — if a change makes that test fail, the change is wrong, not the test. The same reasoning rules out a `--threshold`/`--fail-over` flag: do not add one.
 
 **Do not strengthen claims the audit has bounded.** The report records which fixes are complete (C1, C4, C6, C7) and which are structurally limited by the absence of a syntax parse (C2 sense ambiguity, C3 cross-dimension leakage). Do not describe a bounded fix as solved, and do not remove the caveats in `README.md` or the audit report as part of an unrelated change.
 

@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "4d-language-aware-lens"
 version = "2.0.0"
@@ -19,6 +23,12 @@ classifiers = [
 ]
 dependencies = []
 
+[project.scripts]
+"4dlens" = "fourdlens_cli:main"
+
+[tool.setuptools]
+py-modules = ["revised_4dlens_v2", "fourdlens_cli", "calibration_corpus"]
+
 [tool.pytest.ini_options]
-testpaths = ["."]
+testpaths = ["tests"]
 python_files = ["test_*.py"]

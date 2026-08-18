@@ -40,6 +40,13 @@ CHANGE LOG (claim -> fix):
          score/(score+max) that is monotonic and never clips, at the cost
          of changing what "0.5" means (now: "at the calibration midpoint"
          not "at the ceiling").
+
+ALSO REMOVED: `energy_estimate`, formerly sum(scores) * 0.1. Audit §2
+judged it a metaphor wearing a number's clothes — a linear rescale of
+unrelated pattern counts, borrowing the vocabulary of surprisal/reading-
+time research without being calibrated against any of it. Reintroducing a
+processing-cost estimate means validating against real psycholinguistic
+norms (self-paced reading, eye-tracking corpora), not renaming a sum.
 """
 
 import re
@@ -52,7 +59,6 @@ class VectorSignature:
     dimension_scores: Dict[str, float]
     normalized_scores: Dict[str, float]
     trace: List[str]
-    energy_estimate: float
     manipulation_index: float
     leak_adjustments: int = 0  # count of cross-dimension double-count corrections applied
 
@@ -169,7 +175,6 @@ class FourDLensV2:
             for k in scores
         }
 
-        energy_estimate = round(sum(scores.values()) * 0.1, 2)
         manipulation_index = round(
             normalized['D1_agency'] * 0.4 +
             normalized['D2_affect'] * 0.3 +
@@ -182,7 +187,6 @@ class FourDLensV2:
             dimension_scores=scores,
             normalized_scores=normalized,
             trace=self.trace,
-            energy_estimate=energy_estimate,
             manipulation_index=manipulation_index,
             leak_adjustments=self.leak_adjustments,
         )
