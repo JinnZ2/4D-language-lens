@@ -50,7 +50,7 @@ norms (self-paced reading, eye-tracking corpora), not renaming a sum.
 """
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Dict, Tuple
 
 
@@ -69,7 +69,7 @@ IRREGULAR_PARTICIPLES = {
     'hidden','kept','lost','meant','paid','put','read','said','sold','spoken',
     'stolen','taught','thrown','understood','won','fired','cut','hit','hurt',
     'killed','left','built','bought','caught','found','felt','led','lit','sat',
-    'sent','spent','stood','struck','swept','torn','woken'
+    'spent','stood','struck','swept','torn','woken'
 }
 
 # Predicate adjectives that share the be+X surface pattern but are NOT
@@ -139,7 +139,6 @@ class FourDLensV2:
 
     CAPITALIZATION_PATTERNS = [r'\b[A-Z]{2,}\b']
     PUNCTUATION_MASS = [r'[!?]{2,}', r'[.…]{3,}', r'["\'][^"\']+["\']']
-    ACRONYM_PATTERNS = [r'\b[A-Z]{3,}\b']
     EMOJI_PATTERNS = [r'[\U0001F300-\U0001F9FF]', r':\w+:']
 
     def __init__(self):
@@ -217,10 +216,9 @@ class FourDLensV2:
                                    f"{' (leak-adjusted)' if weight < 1.0 else ''}")
 
         for pattern in self.MIDDLE_VOICE_MARKERS + self.EXPLETIVE_SUBJECTS:
-            matches = re.findall(pattern, text, re.IGNORECASE)
-            if matches:
-                score += len(matches) * 1.2
-                self.trace.append(f"D1: Agency deflection: '{matches[0]}'")
+            for match in re.findall(pattern, text, re.IGNORECASE):
+                score += 1.2
+                self.trace.append(f"D1: Agency deflection: '{match}'")
 
         return round(score, 2)
 
@@ -235,22 +233,19 @@ class FourDLensV2:
                 self.trace.append(f"D2: Amplifier/softener: '{word}'")
 
         for pattern in self.HONORIFIC_MARKERS:
-            matches = re.findall(pattern, text, re.IGNORECASE)
-            if matches:
-                injection += len(matches) * 1.3
-                self.trace.append(f"D2: Honorific/status marker: '{matches[0]}'")
+            for match in re.findall(pattern, text, re.IGNORECASE):
+                injection += 1.3
+                self.trace.append(f"D2: Honorific/status marker: '{match}'")
 
         for pattern in self.EMOTIONAL_INJECTORS:
-            matches = re.findall(pattern, text, re.IGNORECASE)
-            if matches:
-                injection += len(matches) * 1.2
-                self.trace.append(f"D2: Emotional injector: '{matches[0]}'")
+            for match in re.findall(pattern, text, re.IGNORECASE):
+                injection += 1.2
+                self.trace.append(f"D2: Emotional injector: '{match}'")
 
         for pattern in self.FLATTENED_AFFECT:
-            matches = re.findall(pattern, text, re.IGNORECASE)
-            if matches:
-                dampening += len(matches) * 0.8
-                self.trace.append(f"D2: Affective dampening: '{matches[0]}'")
+            for match in re.findall(pattern, text, re.IGNORECASE):
+                dampening += 0.8
+                self.trace.append(f"D2: Affective dampening: '{match}'")
 
         # net, not summed: dampening pulls the signal back toward zero
         # rather than stacking with injection (was C4's failure)
@@ -282,16 +277,14 @@ class FourDLensV2:
                 score += 1.3
                 self.trace.append(f"D3: Binary compression: paired opposition '{a}/{b}'")
         for pattern in EXPLICIT_DICHOTOMY:
-            matches = re.findall(pattern, text, re.IGNORECASE)
-            if matches:
-                score += len(matches) * 1.3
-                self.trace.append(f"D3: Binary compression: explicit dichotomy operator '{matches[0]}'")
+            for match in re.findall(pattern, text, re.IGNORECASE):
+                score += 1.3
+                self.trace.append(f"D3: Binary compression: explicit dichotomy operator '{match}'")
 
         for pattern in self.EVIDENTIALITY_WEAKENERS:
-            matches = re.findall(pattern, text, re.IGNORECASE)
-            if matches:
-                score += len(matches) * 1.1
-                self.trace.append(f"D3: Evidentiality weakening: '{matches[0]}'")
+            for match in re.findall(pattern, text, re.IGNORECASE):
+                score += 1.1
+                self.trace.append(f"D3: Evidentiality weakening: '{match}'")
 
         for pattern in self.COUNTABLE_REIFICATION:
             for m in re.finditer(pattern, text, re.IGNORECASE):
@@ -323,24 +316,21 @@ class FourDLensV2:
             for m in re.finditer(pattern, text):
                 if claim_local(m.span()):
                     score += 0.8
-            if re.findall(pattern, text):
-                self.trace.append(f"D4: Visual mass (caps): '{re.findall(pattern, text)[0]}'")
+                    self.trace.append(f"D4: Visual mass (caps): '{m.group(0)}'")
 
         for pattern in self.PUNCTUATION_MASS:
-            matches = re.findall(pattern, text)
-            if matches:
-                score += len(matches) * 0.9
-                self.trace.append(f"D4: Punctuation mass: '{matches[0]}'")
+            for match in re.findall(pattern, text):
+                score += 0.9
+                self.trace.append(f"D4: Punctuation mass: '{match}'")
 
-        # ACRONYM_PATTERNS intentionally not scored separately anymore —
-        # it fully overlapped CAPITALIZATION_PATTERNS in v1 (same tokens,
-        # double-counted). Folded into the caps pass above via claim_local.
+        # v1 scored a separate acronym pattern (r'\b[A-Z]{3,}\b') that fully
+        # overlapped the capitalization pattern — same tokens, counted twice.
+        # It is folded into the caps pass above via claim_local.
 
         for pattern in self.EMOJI_PATTERNS:
-            matches = re.findall(pattern, text)
-            if matches:
-                score += len(matches) * 1.0
-                self.trace.append(f"D4: Emoji presence: '{matches[0]}'")
+            for match in re.findall(pattern, text):
+                score += 1.0
+                self.trace.append(f"D4: Emoji presence: '{match}'")
 
         return round(score, 2)
 

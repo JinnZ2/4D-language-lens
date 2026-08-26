@@ -67,9 +67,13 @@ gate, and the flags below explain why this instrument must not be one.
 ### Tests
 
 ```bash
-python3 -m unittest discover -s tests -v     # v2 regressions + CLI contract
+python3 -m unittest discover -s tests -v     # regressions, CLI contract, pinned defects
+python3 falsification_v2.py                  # adversarial ledger against the current build
 python3 revised_4dlens_v2.py                 # the built-in example set, scores only
 ```
+
+CI runs the suite on Python 3.10-3.13 and checks that `pip install -e .` yields
+a working `4dlens`.
 
 ### Python API
 
@@ -140,6 +144,26 @@ Flag documents for a trained analyst's attention only. The instrument's output i
 
 ---
 
+## Known false positives (measured, not hypothetical)
+
+`python3 falsification_v2.py` runs these against the current build. 7 of 8
+claims v2 makes break on contact:
+
+| Input | Scores as |
+|---|---|
+| "The document was on the desk." | agentless nominalization (`-ment` suffix, plain concrete noun) |
+| "I waited at the station near the monument." | two nominalizations, plus both again as D3 reification |
+| "The sky was red." | passive voice (`'red'.endswith('ed')`) |
+| "Coffee or tea?" | binary compression (bare `or` is a dichotomy operator) |
+| "Unfortunately, …" | one token scored as softener *and* injector (substring match) |
+| "excellent excellent excellent excellent" | same D2 as one "excellent" (lexicon is presence-based; regex halves are count-based) |
+| "URGENT!!!" | `!!!` scores in D2 and D4 from one span, `leak_adjustments` = 0 |
+
+C8/C9/C10 are the same mistake as C1/C2 — a surface pattern asserted to be a
+linguistic category — in rules the first audit did not sample. C11/C12/C13 are
+internal inconsistencies with unambiguous correct answers, fixable without a
+parser. Full ledger: `4D_Lens_Audit_Report.md` §1b.
+
 ## Known limitation ceiling (won't be fixed by patching regex further)
 
 No dependency parse → no real syntactic passive/agency detection, only lexical approximation. This is why C1-class bugs (predicate adjectives mistaken for participles) can recur on new inputs even after the v2 patch — the stoplist approach caps the failure rate, it doesn't remove the mechanism. Closing this requires swapping the regex layer for a real parser (e.g. spaCy dependency labels) — see audit report §3, item 1.
@@ -150,6 +174,8 @@ No dependency parse → no real syntactic passive/agency detection, only lexical
 - `fourdlens_cli.py` — the `4dlens` command; trace-first reporting, JSON Lines output, no score-dependent exit codes.
 - `tests/test_v2_regressions.py` — standard-library regression checks for the available v2 implementation.
 - `tests/test_cli.py` — CLI contract checks: the full trace is reported, the scalar is suppressible, and no score can change the exit code.
+- `falsification_v2.py` — the C8–C14 adversarial suite against the *current* implementation; runnable, always exits 0, reports which claims v2 makes that break.
+- `tests/test_known_false_positives.py` — pins the C8–C13 defects so fixing one breaks a test instead of passing silently.
 - `falsification_tests.py` — archived v1 falsification harness. It targets `original_4dlens.py`, which the audit describes but which was not part of the supplied source set, so it does not run; it exits with an explanation pointing at the v2 regression suite. Its recorded results are transcribed in the audit's claim ledger.
 - `calibration_corpus.py` — scaffold for empirical weight fitting; intentionally raises `NotImplementedError` until real labeled data exists.
 - `4D_Lens_Audit_Report.md` — full audit: theory grounding, claim-by-claim before/after, and development opportunities.

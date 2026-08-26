@@ -57,6 +57,26 @@ class FourDLensV2RegressionTests(unittest.TestCase):
             manipulative.manipulation_index,
         )
 
+    def test_trace_reports_every_scored_hit(self) -> None:
+        """C14: findall passes once scored len(matches) but traced only the first.
+
+        Four emotional injectors must produce four trace lines, not one. The
+        trace is the product; it may not under-report what the score charged.
+        """
+        signature = self.lens.analyze(
+            "Sadly, tragically, unfortunately, alarmingly."
+        )
+        injectors = [t for t in signature.trace if "Emotional injector" in t]
+        self.assertEqual(len(injectors), 4)
+
+    def test_trace_reports_every_scored_hit_across_dimensions(self) -> None:
+        """Same guarantee for D4, where caps and punctuation both repeat."""
+        signature = self.lens.analyze("URGENT!!! ACT NOW!!!")
+        caps = [t for t in signature.trace if "Visual mass (caps)" in t]
+        punctuation = [t for t in signature.trace if "Punctuation mass" in t]
+        self.assertEqual(len(caps), 3)
+        self.assertEqual(len(punctuation), 2)
+
     def test_saturating_normalization_never_hard_clips(self) -> None:
         signature = self.lens.analyze(
             "Sadly, tragically, unfortunately, alarmingly, urgent, critical, "

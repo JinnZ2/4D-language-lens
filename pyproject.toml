@@ -7,6 +7,7 @@ name = "4d-language-aware-lens"
 version = "2.0.0"
 description = "A transparent, regex-and-lexicon heuristic for reviewing selected rhetorical patterns in English text."
 readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.10"
 authors = [
   { name = "4D Language-Aware Lens contributors" },
@@ -20,6 +21,7 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
   "Topic :: Text Processing :: Linguistic",
+  "License :: OSI Approved :: MIT License",
 ]
 dependencies = []
 

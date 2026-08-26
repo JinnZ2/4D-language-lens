@@ -59,6 +59,31 @@ Six claims implicit in the v1 code, tested against real sentences, then patched 
 
 **Score: 5 of 6 tested claims broke on contact with adversarial input. 4 of 6 fully repaired, 2 structurally improved but bounded by the no-syntax ceiling.** That ratio is itself the most important finding — not any single bug.
 
+### 1b. Second ledger — claims v2 introduced, tested (C8–C14)
+
+The v1 suite is spent: v2 was derived from those exact seven claims, so
+re-running them measures the patch, not the instrument. These are claims the
+**v2 code** makes that were never tested. Harness: `falsification_v2.py`
+(runnable; the output below is real).
+
+| # | Claim (what v2 implies it does) | Falsifying input | Result |
+|---|---|---|---|
+| C8 | The `-tion/-ment/-ance` suffix identifies a nominalization — a deverbal noun that deletes an agent | *"The document was on the desk."* | **FALSIFIED** — D1 = 1.0 on a plain concrete noun. This is C1's failure class (suffix mistaken for a linguistic category) living in D1's *second* rule, which the v1 audit never probed. `AGENTLESS_NOMINALIZATIONS` has no stoplist analogous to `ADJECTIVE_STOPLIST`. |
+| C8b | Same | *"I waited at the station near the monument."* | **FALSIFIED** — D1 = 2.0, D3 = 0.72. Both nouns score twice, once per dimension. |
+| C9 | Restricting passives to `-ed` + irregular list − adjective stoplist removes predicate-adjective false positives | *"The sky was red."* | **FALSIFIED** — `'red'.endswith('ed')` is True. The stoplist is lexical and cannot close this class by construction (red/bed/fed/wed/shed). Exactly the recurrence §"Known limitation ceiling" predicts. |
+| C10 | An explicit dichotomy operator indicates binary framing | *"Coffee or tea?"* | **FALSIFIED** — D3 = 1.3. C2 tightened the paired-opposition rule and left bare `or` in `EXPLICIT_DICHOTOMY` untouched. |
+| C11 | The affect lexicon matches whole words, so each token scores under one rule | *"Unfortunately, the meeting moved."* | **FALSIFIED** — lexicon matching is `if word in text_lower`, a substring test. "unfortunately" contains the softener "unfortunate", so one token scores as softener (1.0) **and** injector (1.2). |
+| C12 | Affect scales with the density of affective language | *"excellent excellent excellent excellent"* | **FALSIFIED** — D2 = 1.0, identical to one occurrence. Lexicon hits are presence-based; regex hits are count-based ("urgent urgent urgent urgent" scales). The two halves of D2 use different units. |
+| C13 | The claimed-span ledger makes cross-dimension double-counting visible wherever it occurs | *"URGENT!!!"* | **FALSIFIED** — `!!!` scores in D2 (injector, 1.2) and D4 (punctuation mass, 0.9) from the same span, and `leak_adjustments` reads 0. `_claim()`/`_span_overlaps_claimed()` are called only in D1 and D3; half the dimensions never touch the ledger. |
+| C14 | The trace reports every pattern that contributed to a score | *"Sadly, tragically, unfortunately, alarmingly."* | **Was FALSIFIED, now fixed** — every `findall` pass scored `len(matches)` but traced `matches[0]` only, so a D2 score of 11.8 was explained by 4 trace lines. Now one trace line per scored hit. No scores changed. |
+
+**Score: 7 of 8 claims broke.** The pattern is the finding, not any single rule: C8, C9 and C10 are all the *same* mistake as C1 and C2 — a surface pattern asserted to be a linguistic category — surviving in rules the first audit happened not to sample. Patching the sampled rules did not generalize to the unsampled ones, and there is no reason to expect the next patch to either. That is the argument for the dependency parse in §3, item 1, restated with evidence.
+
+C11, C12 and C13 are a different and cheaper class: internal inconsistency, fixable without a parser. Substring-vs-word-boundary matching, presence-vs-count scoring, and a ledger applied to two of four dimensions are all defects with unambiguous correct answers.
+
+These behaviors are pinned in `tests/test_known_false_positives.py` so that fixing one breaks a test rather than passing silently.
+
+
 ---
 
 ## 2. Theory grounding — what's borrowed correctly, what's invented
@@ -120,5 +145,6 @@ Mapped by where the *current* precision level (regex + lexicon, no parse tree, n
 
 - `original_4dlens.py` — unmodified input, for reference/reproducibility. **Not present in this repository** — it was described in the audit but was never part of the supplied source set. Every v1 result in the ledger above is transcribed from the original run, not reproducible here.
 - `falsification_tests.py` — the six-claim adversarial test suite, runnable at the time of the audit, output above is real (not illustrative). **Archived**: it imports `original_4dlens.py`, so it cannot run in this repository and exits with an explanation instead. It is kept verbatim as the record of which input broke which claim. The runnable check against the current implementation is `tests/test_v2_regressions.py`.
+- `falsification_v2.py` — the C8–C14 suite above, testing claims v2 itself introduced; runnable against the current implementation
 - `revised_4dlens_v2.py` — patched implementation with inline changelog tying every change to the claim it fixes
 - `calibration_corpus.py` — scaffold for the actual next step (empirical weight-fitting); intentionally raises `NotImplementedError` until real labeled data exists, so it can't be mistaken for a finished validation

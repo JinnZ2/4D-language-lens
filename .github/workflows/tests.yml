@@ -1,0 +1,46 @@
+name: tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Run the test suite
+        run: python -m unittest discover -s tests -v
+      - name: Check the CLI runs
+        run: |
+          python fourdlens_cli.py --demo --width 80 > /dev/null
+          python fourdlens_cli.py --json "Mistakes were made." > /dev/null
+      - name: Check the archived v1 harness still refuses to run
+        run: |
+          if python falsification_tests.py 2>/dev/null; then
+            echo "falsification_tests.py should exit non-zero without original_4dlens.py"
+            exit 1
+          fi
+      - name: Report the v2 falsification ledger
+        run: python falsification_v2.py
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install and run the entry point
+        run: |
+          pip install -e .
+          4dlens "Mistakes were made during the operational realignment." --width 80

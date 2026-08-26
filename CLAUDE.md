@@ -17,8 +17,9 @@ Python 3.10+, standard library only. No external dependencies at runtime or test
 ```bash
 python3 fourdlens_cli.py "text to analyze"   # the CLI, without installing
 pip install -e . && 4dlens "text"            # installs the `4dlens` entry point
-python3 -m unittest discover -s tests -v     # full suite (18 tests)
+python3 -m unittest discover -s tests -v     # full suite (28 tests)
 python3 revised_4dlens_v2.py                 # built-in example set, scores only
+python3 falsification_v2.py                  # C8-C14 adversarial ledger against the current build
 ```
 
 `falsification_tests.py` is an archived v1 harness. It imports `original_4dlens.py`, which is not in this repo, so it cannot run; it raises `SystemExit` with an explanation instead of an `ImportError` traceback. Leave it as a historical artifact — do not repoint it at `FourDLensV2`. The v2 fixes were derived from these exact tests, so running them against v2 would measure nothing.
@@ -29,6 +30,8 @@ python3 revised_4dlens_v2.py                 # built-in example set, scores only
 - `fourdlens_cli.py` — the `4dlens` command. It reads the lens's output and reformats it; it holds no scoring logic and must not acquire any.
 - `tests/test_v2_regressions.py` — regression checks pinned to the audited fixes.
 - `tests/test_cli.py` — CLI contract checks, including the exit-code guarantee below.
+- `tests/test_known_false_positives.py` — pins the C8-C13 defects. These assert what the lens currently does, NOT what it should do. Do not relax an assertion to make it pass: a failure means scoring changed, which is the signal to update the audit ledger and the pinned values together.
+- `falsification_v2.py` — adversarial suite against the current build, continuing the ledger at C8. Research harness, not a gate: always exits 0. Add a claim here before fixing the behavior it describes.
 - `calibration_corpus.py` — scaffold for empirical weight fitting. `fit_weights()` raises `NotImplementedError` on purpose, so it cannot be mistaken for completed validation. Do not implement it against the placeholder examples; it needs real labeled data first.
 - `4D_Lens_Audit_Report.md` — falsification ledger, theory grounding, and the prioritized list of next steps.
 - `README.md` — operating manual and use-case boundaries.
@@ -45,7 +48,11 @@ python3 revised_4dlens_v2.py                 # built-in example set, scores only
 
 **Regression tests assert exact numeric values and exact trace strings** (e.g. `D2` netting to `2.0`, and the literal `"D2: net = injection(2.4) - 0.5*dampening(0.8) = 2.0"` trace line). Any change to scoring or trace formatting will break them. When that happens, decide whether the new behavior is actually correct against the audit before updating the expected values — a test breaking is the intended alarm, not noise.
 
-**Cross-dimension leakage is tracked, not eliminated.** Scoring passes share a claimed-span ledger; a span already claimed by an earlier dimension scores at 0.3× and increments `leak_adjustments`. New patterns that consume text spans should go through `_span_overlaps_claimed()` / `_claim()` so the leak stays visible instead of silently double-counting.
+**The trace may never under-report what the score charged for.** Every scoring pass emits one trace line per scored hit. `findall` passes previously scored `len(matches)` and traced `matches[0]`, so a D2 of 11.8 was explained by 4 lines; `tests/test_v2_regressions.py` now pins the counts. If you add a pass that multiplies by a match count, iterate and trace each one.
+
+**Known-defect ledger before fix.** `4D_Lens_Audit_Report.md` §1b records seven falsified v2 claims (C8-C14). C8/C9/C10 are the C1/C2 failure class in unsampled rules and are bounded by the missing parser; C11/C12/C13 are internal inconsistencies fixable now. Fixing any of them changes scores and breaks pinned tests in two files — update the ledger, the pinned values, and the module change log in the same commit.
+
+**Cross-dimension leakage is tracked, not eliminated.** D1 and D3 share a claimed-span ledger; a span already claimed by an earlier dimension scores at 0.3x and increments `leak_adjustments`. D2 and D4 do not participate at all (C13) — the invariant currently holds for half the dimensions. New patterns that consume text spans should go through `_span_overlaps_claimed()` / `_claim()` so the leak stays visible instead of silently double-counting.
 
 **Scope is English only.** The lexicons (`IRREGULAR_PARTICIPLES`, `ADJECTIVE_STOPLIST`, `POSITIVE_AMPLIFIERS`, …) are hand-typed English word lists, spot-checked only on corporate, political, and casual registers. Nothing here is tested cross-genre or cross-language.
 
