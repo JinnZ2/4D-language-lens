@@ -13,8 +13,13 @@ Runnable, and reports real output:
 
 This is a research harness, not a gate. It always exits 0; a FALSIFIED result
 is a finding to record in `4D_Lens_Audit_Report.md`, not a build failure.
-The behaviors it documents are pinned in `tests/test_known_false_positives.py`
-so that fixing one breaks a test loudly instead of passing silently.
+
+C11-C13 were internal inconsistencies and have been fixed; they stay here as
+the record of what was wrong and as guards against regression. C8-C10 remain
+falsified: each asserts that a surface pattern identifies a linguistic
+category, which is the failure class bounded by the missing parser. They are
+pinned in `tests/test_known_false_positives.py` so that fixing one breaks a
+test loudly instead of passing silently.
 """
 
 from revised_4dlens_v2 import FourDLensV2
@@ -77,9 +82,9 @@ CLAIMS = [
         "under exactly one rule.",
         "Unfortunately, the meeting moved.",
         lambda s: trace_hits(s, "Amplifier/softener") == 0,
-        "Lexicon matching is `if word in text_lower` — substring, not word "
-        "boundary. 'unfortunately' contains the softener 'unfortunate', so "
-        "one token scores as both softener (1.0) and injector (1.2).",
+        "Previously falsified: lexicon matching was `if word in text_lower`, "
+        "a substring test, so 'unfortunately' scored as both the softener "
+        "'unfortunate' (1.0) and an injector (1.2). Fixed — word boundaries.",
     ),
     (
         "C12",
@@ -87,9 +92,9 @@ CLAIMS = [
         "excellent excellent excellent excellent",
         lambda s: s.dimension_scores["D2_affect"]
         > analyze("excellent").dimension_scores["D2_affect"],
-        "Lexicon hits are presence-based (+1.0 once) while regex hits are "
-        "count-based (x len(matches)). Four intensifiers score as one; four "
-        "'urgent's score as four. The two halves of D2 use different units.",
+        "Previously falsified: lexicon hits were presence-based (+1.0 once) "
+        "while regex hits were count-based, so four intensifiers scored as "
+        "one. Fixed — both halves of D2 score once per occurrence.",
     ),
     (
         "C13",
@@ -97,10 +102,10 @@ CLAIMS = [
         "visible wherever it occurs.",
         "URGENT!!!",
         lambda s: s.leak_adjustments > 0,
-        "'!!!' scores in D2 (emotional injector) and again in D4 "
-        "(punctuation mass) from the same span, but _claim() and "
-        "_span_overlaps_claimed() are only called in D1 and D3. Half the "
-        "dimensions never touch the ledger, so the leak counter reads 0.",
+        "Previously falsified: _claim() and _span_overlaps_claimed() were "
+        "called only in D1 and D3, so '!!!' scoring in both D2 and D4 from "
+        "one span left leak_adjustments at 0. Fixed — every pass in all four "
+        "dimensions goes through _ledger_weight().",
     ),
     (
         "C14",

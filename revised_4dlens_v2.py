@@ -40,6 +40,21 @@ CHANGE LOG (claim -> fix):
          score/(score+max) that is monotonic and never clips, at the cost
          of changing what "0.5" means (now: "at the calibration midpoint"
          not "at the ceiling").
+  C11 substring lexicon matching (one token scoring under two rules)
+      -> affect lexicon terms are matched on word boundaries. "unfortunately"
+         no longer scores as the softener "unfortunate" as well as an
+         emotional injector.
+  C12 lexicon hits presence-based while regex hits were count-based
+      -> both halves of D2 now score once per occurrence, so density raises
+         affect consistently. "excellent" x4 no longer scores as "excellent".
+  C13 the claimed-span ledger covered D1 and D3 only
+      -> every scoring pass in all four dimensions goes through
+         _ledger_weight(). "!!!" scoring in D2 (injector) and D4 (punctuation
+         mass) from one span now registers as a leak instead of reading 0.
+         Side effect on the C4 example: "noted" in "It was noted" is claimed
+         by D1's passive rule first, so D2's dampening for the same token is
+         leak-adjusted and D2 nets 2.28 rather than 2.0. C4's claim
+         (injection and dampening net, not sum) is unaffected.
 
 ALSO REMOVED: `energy_estimate`, formerly sum(scores) * 0.1. Audit §2
 judged it a metaphor wearing a number's clothes — a linear rescale of
@@ -155,6 +170,21 @@ class FourDLensV2:
     def _claim(self, span: Tuple[int, int]):
         self._claimed_spans.append(span)
 
+    def _ledger_weight(self, span: Tuple[int, int], weight: float) -> float:
+        """Discount a span already claimed by an earlier pass, then claim it.
+
+        Every scoring pass in every dimension goes through here (C13). A span
+        some earlier rule already scored contributes at 0.3x and bumps
+        `leak_adjustments`, so re-used evidence stays visible instead of
+        silently inflating a second dimension. Callers compare the returned
+        weight against what they passed in to label the trace line.
+        """
+        if self._span_overlaps_claimed(span):
+            weight *= 0.3
+            self.leak_adjustments += 1
+        self._claim(span)
+        return weight
+
     def analyze(self, text: str) -> VectorSignature:
         self.trace = []
         self.leak_adjustments = 0
@@ -200,52 +230,63 @@ class FourDLensV2:
             if word in ADJECTIVE_STOPLIST:
                 continue
             if word.endswith('ed') or word in IRREGULAR_PARTICIPLES:
-                score += 1.5
-                self._claim(m.span())
-                self.trace.append(f"D1: Passive voice found: '{m.group(0)}'")
+                weight = self._ledger_weight(m.span(), 1.5)
+                score += weight
+                self.trace.append(f"D1: Passive voice found: '{m.group(0)}'"
+                                  f"{' (leak-adjusted)' if weight < 1.5 else ''}")
 
         for pattern in self.AGENTLESS_NOMINALIZATIONS:
             for m in re.finditer(pattern, text, re.IGNORECASE):
-                weight = 1.0
-                if self._span_overlaps_claimed(m.span()):
-                    weight *= 0.3
-                    self.leak_adjustments += 1
+                weight = self._ledger_weight(m.span(), 1.0)
                 score += weight
-                self._claim(m.span())
                 self.trace.append(f"D1: Agentless nominalization: '{m.group(1)}'"
                                    f"{' (leak-adjusted)' if weight < 1.0 else ''}")
 
         for pattern in self.MIDDLE_VOICE_MARKERS + self.EXPLETIVE_SUBJECTS:
-            for match in re.findall(pattern, text, re.IGNORECASE):
-                score += 1.2
-                self.trace.append(f"D1: Agency deflection: '{match}'")
+            for m in re.finditer(pattern, text, re.IGNORECASE):
+                weight = self._ledger_weight(m.span(), 1.2)
+                score += weight
+                self.trace.append(f"D1: Agency deflection: '{m.group(1)}'"
+                                  f"{' (leak-adjusted)' if weight < 1.2 else ''}")
 
         return round(score, 2)
 
     def _measure_affective_impedance(self, text: str) -> float:
         injection = 0.0
         dampening = 0.0
-        text_lower = text.lower()
 
+        # Whole-word, once per occurrence. Substring matching (C11) let
+        # "unfortunately" score as the softener "unfortunate" AND as an
+        # injector; presence-based counting (C12) made four intensifiers score
+        # as one while the regex passes below scaled with match count. Both
+        # halves of D2 now use the same unit.
         for word in self.POSITIVE_AMPLIFIERS + self.NEGATIVE_SOFTENERS:
-            if word in text_lower:
-                injection += 1.0
-                self.trace.append(f"D2: Amplifier/softener: '{word}'")
+            for m in re.finditer(rf'\b{re.escape(word)}\b', text, re.IGNORECASE):
+                weight = self._ledger_weight(m.span(), 1.0)
+                injection += weight
+                self.trace.append(f"D2: Amplifier/softener: '{m.group(0)}'"
+                                  f"{' (leak-adjusted)' if weight < 1.0 else ''}")
 
         for pattern in self.HONORIFIC_MARKERS:
-            for match in re.findall(pattern, text, re.IGNORECASE):
-                injection += 1.3
-                self.trace.append(f"D2: Honorific/status marker: '{match}'")
+            for m in re.finditer(pattern, text, re.IGNORECASE):
+                weight = self._ledger_weight(m.span(), 1.3)
+                injection += weight
+                self.trace.append(f"D2: Honorific/status marker: '{m.group(0)}'"
+                                  f"{' (leak-adjusted)' if weight < 1.3 else ''}")
 
         for pattern in self.EMOTIONAL_INJECTORS:
-            for match in re.findall(pattern, text, re.IGNORECASE):
-                injection += 1.2
-                self.trace.append(f"D2: Emotional injector: '{match}'")
+            for m in re.finditer(pattern, text, re.IGNORECASE):
+                weight = self._ledger_weight(m.span(), 1.2)
+                injection += weight
+                self.trace.append(f"D2: Emotional injector: '{m.group(0)}'"
+                                  f"{' (leak-adjusted)' if weight < 1.2 else ''}")
 
         for pattern in self.FLATTENED_AFFECT:
-            for match in re.findall(pattern, text, re.IGNORECASE):
-                dampening += 0.8
-                self.trace.append(f"D2: Affective dampening: '{match}'")
+            for m in re.finditer(pattern, text, re.IGNORECASE):
+                weight = self._ledger_weight(m.span(), 0.8)
+                dampening += weight
+                self.trace.append(f"D2: Affective dampening: '{m.group(0)}'"
+                                  f"{' (leak-adjusted)' if weight < 0.8 else ''}")
 
         # net, not summed: dampening pulls the signal back toward zero
         # rather than stacking with injection (was C4's failure)
@@ -260,14 +301,10 @@ class FourDLensV2:
 
         for pattern in self.REIFICATION_MARKERS:
             for m in re.finditer(pattern, text, re.IGNORECASE):
-                weight = 1.4
-                if self._span_overlaps_claimed(m.span()):
-                    weight *= 0.3
-                    self.leak_adjustments += 1
+                weight = self._ledger_weight(m.span(), 1.4)
                 if has_named_actor:
                     weight *= 0.5
                 score += weight
-                self._claim(m.span())
                 self.trace.append(f"D3: Reification: '{m.group(1)}'"
                                    f"{' (actor-present, downweighted)' if has_named_actor else ''}")
 
@@ -277,25 +314,25 @@ class FourDLensV2:
                 score += 1.3
                 self.trace.append(f"D3: Binary compression: paired opposition '{a}/{b}'")
         for pattern in EXPLICIT_DICHOTOMY:
-            for match in re.findall(pattern, text, re.IGNORECASE):
-                score += 1.3
-                self.trace.append(f"D3: Binary compression: explicit dichotomy operator '{match}'")
+            for m in re.finditer(pattern, text, re.IGNORECASE):
+                weight = self._ledger_weight(m.span(), 1.3)
+                score += weight
+                self.trace.append(f"D3: Binary compression: explicit dichotomy operator "
+                                  f"'{m.group(0)}'{' (leak-adjusted)' if weight < 1.3 else ''}")
 
         for pattern in self.EVIDENTIALITY_WEAKENERS:
-            for match in re.findall(pattern, text, re.IGNORECASE):
-                score += 1.1
-                self.trace.append(f"D3: Evidentiality weakening: '{match}'")
+            for m in re.finditer(pattern, text, re.IGNORECASE):
+                weight = self._ledger_weight(m.span(), 1.1)
+                score += weight
+                self.trace.append(f"D3: Evidentiality weakening: '{m.group(0)}'"
+                                  f"{' (leak-adjusted)' if weight < 1.1 else ''}")
 
         for pattern in self.COUNTABLE_REIFICATION:
             for m in re.finditer(pattern, text, re.IGNORECASE):
-                weight = 1.2
-                if self._span_overlaps_claimed(m.span()):
-                    weight *= 0.3
-                    self.leak_adjustments += 1
+                weight = self._ledger_weight(m.span(), 1.2)
                 if has_named_actor:
                     weight *= 0.5
                 score += weight
-                self._claim(m.span())
                 self.trace.append(f"D3: Countable reification: '{m.group(1)}'"
                                    f"{' (actor-present, downweighted)' if has_named_actor else ''}")
 
@@ -315,22 +352,28 @@ class FourDLensV2:
         for pattern in self.CAPITALIZATION_PATTERNS:
             for m in re.finditer(pattern, text):
                 if claim_local(m.span()):
-                    score += 0.8
-                    self.trace.append(f"D4: Visual mass (caps): '{m.group(0)}'")
+                    weight = self._ledger_weight(m.span(), 0.8)
+                    score += weight
+                    self.trace.append(f"D4: Visual mass (caps): '{m.group(0)}'"
+                                      f"{' (leak-adjusted)' if weight < 0.8 else ''}")
 
         for pattern in self.PUNCTUATION_MASS:
-            for match in re.findall(pattern, text):
-                score += 0.9
-                self.trace.append(f"D4: Punctuation mass: '{match}'")
+            for m in re.finditer(pattern, text):
+                weight = self._ledger_weight(m.span(), 0.9)
+                score += weight
+                self.trace.append(f"D4: Punctuation mass: '{m.group(0)}'"
+                                  f"{' (leak-adjusted)' if weight < 0.9 else ''}")
 
         # v1 scored a separate acronym pattern (r'\b[A-Z]{3,}\b') that fully
         # overlapped the capitalization pattern — same tokens, counted twice.
         # It is folded into the caps pass above via claim_local.
 
         for pattern in self.EMOJI_PATTERNS:
-            for match in re.findall(pattern, text):
-                score += 1.0
-                self.trace.append(f"D4: Emoji presence: '{match}'")
+            for m in re.finditer(pattern, text):
+                weight = self._ledger_weight(m.span(), 1.0)
+                score += weight
+                self.trace.append(f"D4: Emoji presence: '{m.group(0)}'"
+                                  f"{' (leak-adjusted)' if weight < 1.0 else ''}")
 
         return round(score, 2)
 

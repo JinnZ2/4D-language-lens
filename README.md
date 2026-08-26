@@ -146,23 +146,28 @@ Flag documents for a trained analyst's attention only. The instrument's output i
 
 ## Known false positives (measured, not hypothetical)
 
-`python3 falsification_v2.py` runs these against the current build. 7 of 8
-claims v2 makes break on contact:
+`python3 falsification_v2.py` runs these against the current build. Four
+claims still break, and all four are the same mistake — a surface pattern
+asserted to be a linguistic category:
 
-| Input | Scores as |
+| Input | Still scores as |
 |---|---|
-| "The document was on the desk." | agentless nominalization (`-ment` suffix, plain concrete noun) |
+| "The document was on the desk." | agentless nominalization (`-ment` suffix on a plain concrete noun) |
 | "I waited at the station near the monument." | two nominalizations, plus both again as D3 reification |
 | "The sky was red." | passive voice (`'red'.endswith('ed')`) |
-| "Coffee or tea?" | binary compression (bare `or` is a dichotomy operator) |
-| "Unfortunately, …" | one token scored as softener *and* injector (substring match) |
-| "excellent excellent excellent excellent" | same D2 as one "excellent" (lexicon is presence-based; regex halves are count-based) |
-| "URGENT!!!" | `!!!` scores in D2 and D4 from one span, `leak_adjustments` = 0 |
+| "Coffee or tea?" | binary compression (bare `or` counts as a dichotomy operator) |
 
-C8/C9/C10 are the same mistake as C1/C2 — a surface pattern asserted to be a
-linguistic category — in rules the first audit did not sample. C11/C12/C13 are
-internal inconsistencies with unambiguous correct answers, fixable without a
-parser. Full ledger: `4D_Lens_Audit_Report.md` §1b.
+This is C1/C2 recurring in rules the first audit did not sample, and a
+stoplist cannot close it — red/bed/fed/wed/shed are open-ended. It needs a
+parser, not a longer word list.
+
+Three further defects **have** been fixed, and are kept in the ledger as
+regression guards: substring lexicon matching that scored "unfortunately" as
+both a softener and an injector (C11), presence-based lexicon counting that
+scored four intensifiers as one (C12), and a claimed-span ledger that covered
+only D1 and D3, so `!!!` scoring in both D2 and D4 reported no leak (C13).
+
+Full ledger: `4D_Lens_Audit_Report.md` §1b.
 
 ## Known limitation ceiling (won't be fixed by patching regex further)
 

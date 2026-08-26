@@ -28,11 +28,45 @@ class FourDLensV2RegressionTests(unittest.TestCase):
         self.assertEqual(signature.dimension_scores["D3_reality"], 0.0)
 
     def test_affect_injection_and_dampening_are_netted(self) -> None:
+        """C4: dampening pulls affect toward zero instead of stacking with it.
+
+        The netted value moved from 2.0 to 2.28 when C13 extended the
+        claimed-span ledger to D2: "noted" is claimed by D1's passive rule
+        ("was noted") first, so D2's dampening for the same token scores at
+        0.3x. C4's claim is about netting, not about the magnitude, and is
+        unaffected.
+        """
         signature = self.lens.analyze(
             "It was noted that the situation is tragically urgent."
         )
-        self.assertEqual(signature.dimension_scores["D2_affect"], 2.0)
-        self.assertIn("D2: net = injection(2.4) - 0.5*dampening(0.8) = 2.0", signature.trace)
+        self.assertEqual(signature.dimension_scores["D2_affect"], 2.28)
+        self.assertIn(
+            "D2: net = injection(2.4) - 0.5*dampening(0.24) = 2.28", signature.trace
+        )
+        self.assertIn("D2: Affective dampening: 'noted' (leak-adjusted)", signature.trace)
+
+    def test_affect_lexicon_matches_whole_words_only(self) -> None:
+        """C11: "unfortunately" must not also score the softener "unfortunate"."""
+        signature = self.lens.analyze("Unfortunately, the meeting moved.")
+        softeners = [t for t in signature.trace if "Amplifier/softener" in t]
+        self.assertEqual(softeners, [])
+        self.assertIn("D2: Emotional injector: 'Unfortunately'", signature.trace)
+
+    def test_affect_scales_with_density_in_both_halves_of_d2(self) -> None:
+        """C12: lexicon and regex halves of D2 now use the same unit."""
+        for once, many in (("excellent", "excellent excellent excellent excellent"),
+                           ("urgent", "urgent urgent urgent urgent")):
+            with self.subTest(term=once):
+                self.assertGreater(
+                    self.lens.analyze(many).dimension_scores["D2_affect"],
+                    self.lens.analyze(once).dimension_scores["D2_affect"],
+                )
+
+    def test_leak_ledger_covers_all_four_dimensions(self) -> None:
+        """C13: '!!!' scores in D2 and D4 from one span; the re-use is logged."""
+        signature = self.lens.analyze("URGENT!!!")
+        self.assertGreater(signature.leak_adjustments, 0)
+        self.assertTrue(any("leak-adjusted" in t for t in signature.trace))
 
     def test_manipulative_example_outranks_neutral_example(self) -> None:
         neutral = self.lens.analyze("The train departs at 6pm from platform two.")
