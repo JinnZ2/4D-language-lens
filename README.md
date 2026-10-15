@@ -1,3 +1,5 @@
+Read [READ_ME_THIS_WAY.md](READ_ME_THIS_WAY.md) first.
+
 # 4D Language-Aware Lens (v2)
 
 Regex/lexicon heuristic that scores text across four dimensions of linguistic manipulation. No syntax parser, no calibrated weights, no validation corpus (yet) — see `4D_Lens_Audit_Report.md` for the full audit. This README is the operating manual: what it's for, how to read its output, and where it must not go.
@@ -155,3 +157,10 @@ No dependency parse → no real syntactic passive/agency detection, only lexical
 - `4D_Lens_Audit_Report.md` — full audit: theory grounding, claim-by-claim before/after, and development opportunities.
 - `pyproject.toml` — project metadata and the `4dlens` entry point; Python 3.10+, no runtime dependencies.
 - `conftest.py` — puts the repo root on `sys.path` so `pytest` works as well as the stdlib runner.
+
+
+---
+
+## License
+
+The owner's original work in this repository is dedicated to the public domain under **[CC0 1.0 Universal](LICENSE)**. This dedication covers owner-authored material only. The 2026-10-15 tracked-file/provenance review found no third-party or vendored files; any material carrying its own rights or notice retains those terms and is recorded in `LICENSE_HISTORY.md`.

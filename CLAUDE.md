@@ -67,3 +67,8 @@ Without this, the first push of a new branch
 fails the tracking-ref check even when the
 commit landed.
 <!-- /clone-refspec-note v1.1 -->
+
+
+## Licensing
+
+The owner's original work in this repository is dedicated to **CC0 1.0 Universal**; see `LICENSE` and the dated record in `LICENSE_HISTORY.md`. This dedication applies only to owner-authored material. No third-party or vendored files were identified in the 2026-10-15 tracked-file/provenance review; any material later added with its own rights or notice retains those terms and must be recorded in `LICENSE_HISTORY.md`.
